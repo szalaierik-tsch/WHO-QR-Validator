@@ -1,0 +1,181 @@
+openapi: 3.1.0
+info:
+  title: QR Validator API
+  version: 1.0.0
+  description: >
+    Service for decoding, validating, and transforming QR codes.
+    - **decode**: input is QR string or QR image → output is COSE object (JSON).
+    - **validate**: decode + validate QR against external key.
+    - **convertToPicture**: generate a QR image from a QR string.
+    - **convertToString**: extract raw QR string from a QR image.
+
+servers:
+  - url: https://api.example.com/qrValidator/v1
+
+paths:
+  /qrCodes/decode:
+    post:
+      summary: Decode QR code
+      description: >
+        Decodes a QR code string or an uploaded QR code image into a COSE object (JSON).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              description: QR code string (e.g. "HC1:...").
+            example: "HC1:6BF2Y2:9Q6WQC403DEJMF7+0E..."
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: QR code image file (e.g. PNG, JPG).
+      responses:
+        '200':
+          description: Decoded COSE object
+          content:
+            application/json:
+              schema:
+                type: object
+                description: COSE object as JSON
+                additionalProperties: true
+                example:
+                  {
+                    "coseHeader": { "alg": "ES256", "kid": "1234" },
+                    "payload": { "nam": { "fn": "Doe", "gn": "John" }, "dob": "1970-01-01" }
+                  }
+        '400':
+          description: Invalid QR code input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                example: { "error": "Unable to decode QR" }
+
+  /qrCodes/validate:
+    post:
+      summary: Validate QR code
+      description: >
+        Validates a QR code string or image by decoding it into a COSE object
+        and checking its signature using an external key source.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              description: QR code string (e.g. "HC1:...").
+            example: "HC1:6BF2Y2:9Q6WQC403DEJMF7+0E..."
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: QR code image file (e.g. PNG, JPG).
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  reason:
+                    type: string
+                  cose:
+                    type: object
+                    description: Decoded COSE object
+                    additionalProperties: true
+                example:
+                  {
+                    "valid": true,
+                    "reason": "Signature verified successfully",
+                    "cose": {
+                      "coseHeader": { "alg": "ES256", "kid": "1234" },
+                      "payload": { "nam": { "fn": "Doe", "gn": "John" }, "dob": "1970-01-01" }
+                    }
+                  }
+        '400':
+          description: Invalid QR code input or failed validation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                example: { "error": "Invalid signature" }
+
+  /qrCodes/convertToPicture:
+    post:
+      summary: Convert QR string to QR picture
+      description: >
+        Takes a QR string (e.g. "HC1:...") and returns the QR code rendered as an image.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+              description: QR code string to convert.
+            example: "HC1:6BF2Y2:9Q6WQC403DEJMF7+0E..."
+      responses:
+        '200':
+          description: QR code image generated successfully
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Could not convert string to QR code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                example: { "error": "Invalid QR string" }
+
+  /qrCodes/convertToString:
+    post:
+      summary: Convert QR picture to string
+      description: >
+        Takes a QR code image and extracts the raw string content from it.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+              description: QR code image file (e.g. PNG, JPG).
+      responses:
+        '200':
+          description: QR code string extracted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qrString:
+                    type: string
+                    description: Raw string content of the QR code.
+                example:
+                  { "qrString": "HC1:6BF2Y2:9Q6WQC403DEJMF7+0E..." }
+        '400':
+          description: Could not extract string from QR code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                example: { "error": "No QR code found in image" }
